@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>streaming-pull</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Subscriptions.StreamingPull</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

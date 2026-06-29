@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>topic-management</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Topics.TopicManagement</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

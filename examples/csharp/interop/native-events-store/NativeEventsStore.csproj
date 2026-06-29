@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    interop/native-events-store — the ONLY variant that imports a KubeMQ SDK.
+    Pub/Sub half: Google.Cloud.PubSub.V1 (publish to topic `orders`).
+    Native half:  KubeMQ.SDK.csharp (Events Store subscribe on `pubsub.orders`).
+    Both versions come from ../../Directory.Packages.props (Central Package
+    Management); do NOT add inline Version attributes here.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>native-events-store</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Interop.NativeEventsStore</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+    <PackageReference Include="KubeMQ.SDK.csharp" />
+  </ItemGroup>
+</Project>

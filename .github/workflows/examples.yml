@@ -1,0 +1,233 @@
+# =============================================================================
+# Examples CI — compile / typecheck only
+# =============================================================================
+#
+# This workflow proves that every example under examples/ COMPILES and
+# TYPECHECKS for all six languages (Go, Python, Ruby, Java, C#, JS/TS). It is a
+# build gate, NOT a functional test.
+#
+# WHY COMPILE-ONLY:
+#   The examples are native first-party Google Cloud Pub/Sub clients pointed at
+#   the KubeMQ GCP Pub/Sub connector via PUBSUB_EMULATOR_HOST (the connector
+#   speaks the google.pubsub.v1 emulator protocol on port 8085). A *live* run
+#   therefore needs a running connector listening on :8085 — which is NOT
+#   available in public CI (the connector is not published as a public image
+#   here). So these jobs install each toolchain + dependencies and stop at
+#   build / vet / typecheck. They never open a Pub/Sub connection.
+#
+#   For how a live run would be wired against a connector, see the
+#   `live-run-docs` job at the bottom (manual workflow_dispatch only — it does
+#   not run anything, it documents the contract).
+#
+# Toolchain floors are taken from the example manifests (single source of truth):
+#   Go     1.25  -> examples/go/go.mod (go 1.25.0)
+#   Python 3.10  -> examples/python/pyproject.toml (requires-python >=3.10)
+#   Ruby   3.3   -> examples/ruby (built/verified on Ruby 3.3.x; google-cloud-pubsub ~> 3.3)
+#   Java   21    -> examples/java/pom.xml (maven.compiler.release 21)
+#   .NET   8     -> examples/csharp/Directory.Build.props (TargetFramework net8.0)
+#   Node   20    -> examples/javascript/package.json (@types/node ^20, typescript ^5.4)
+# =============================================================================
+
+name: examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - ".github/workflows/examples.yml"
+  pull_request:
+    paths:
+      - "examples/**"
+      - ".github/workflows/examples.yml"
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: examples-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Go — `go build ./...` + `go vet ./...` over the single examples module.
+  # The module (examples/go/go.mod) spans every variant package (topics/,
+  # subscriptions/, delivery/, advanced/, interop/) plus the internal/deps
+  # build anchor, so one build/vet pass covers all 15 variants.
+  # ---------------------------------------------------------------------------
+  go:
+    name: Go (build + vet)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: examples/go/go.sum
+      - name: go build
+        run: go build ./...
+      - name: go vet
+        run: go vet ./...
+
+  # ---------------------------------------------------------------------------
+  # Python — install deps with uv from the locked pyproject.toml/uv.lock, then
+  # byte-compile every example with `python -m compileall` (fails on any
+  # SyntaxError). The package-style variant dirs (topics/, subscriptions/, ...)
+  # use snake_case so `compileall` recurses cleanly.
+  # ---------------------------------------------------------------------------
+  python:
+    name: Python (compileall)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync dependencies (locked)
+        run: uv sync --frozen
+      - name: Byte-compile every example
+        # -q quiet, exit non-zero on first SyntaxError. Skip the uv venv + cache.
+        run: uv run python -m compileall -q -x '(\.venv|\.ruff_cache)' .
+
+  # ---------------------------------------------------------------------------
+  # Ruby — `ruby -c` syntax-checks every example script (works without the
+  # native gems), and `bundle install` proves the Gemfile resolves
+  # (google-cloud-pubsub ~> 3.3 + kubemq ~> 1.0 + rubocop).
+  # ---------------------------------------------------------------------------
+  ruby:
+    name: Ruby (syntax check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/ruby
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          # bundle install + cache the resolved gems for the next run.
+          bundler-cache: true
+          working-directory: examples/ruby
+      - name: Syntax-check every example
+        # ruby -c returns non-zero on the first parse error; -print0/-0 keeps
+        # paths with spaces safe.
+        run: find . -name '*.rb' -print0 | xargs -0 -n1 ruby -c
+
+  # ---------------------------------------------------------------------------
+  # Java — `mvn -q -B compile` over the single Maven project (examples/java),
+  # whose src/ tree holds all 15 variant Main classes. Compiles against the
+  # google-libraries-bom + pinned protobuf runtime declared in pom.xml.
+  # ---------------------------------------------------------------------------
+  java:
+    name: Java (mvn compile)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: mvn compile
+        run: mvn -q -B -ntp compile
+
+  # ---------------------------------------------------------------------------
+  # C# / .NET — `dotnet build` the solution, which builds all 15 variant
+  # .csproj projects (net8.0, Central Package Management via
+  # Directory.Packages.props). --no-incremental forces a clean compile.
+  # ---------------------------------------------------------------------------
+  csharp:
+    name: C# (dotnet build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/csharp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore
+        run: dotnet restore KubeMQ.GcpPubSub.Examples.sln
+      - name: Build
+        run: dotnet build KubeMQ.GcpPubSub.Examples.sln --configuration Release --no-restore
+
+  # ---------------------------------------------------------------------------
+  # JS/TS — `npm ci` against the committed package-lock.json, then
+  # `tsc --noEmit` typechecks all 15 .ts examples under strict mode
+  # (tsconfig.json). No build artifacts are emitted.
+  # ---------------------------------------------------------------------------
+  javascript:
+    name: JS/TS (tsc --noEmit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/javascript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: examples/javascript/package-lock.json
+      - name: Install dependencies (locked)
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+
+  # ---------------------------------------------------------------------------
+  # live-run-docs — DOCUMENTATION ONLY, manual trigger.
+  #
+  # This job does NOT execute any example. It exists to document, in one place,
+  # exactly how a live functional run would be wired once a connector is
+  # reachable on :8085 — it deliberately stops short of doing so because there
+  # is no public connector image to start here.
+  #
+  # To run the examples for real (locally or in a private runner that can reach
+  # a connector), the contract is:
+  #
+  #   1. Start the KubeMQ server with the Google Pub/Sub connector bound to
+  #      :8085 (the emulator protocol; no-auth / no-TLS — do not expose :8085).
+  #   2. Export the standard Google client env vars so every example becomes a
+  #      drop-in against the connector with zero code changes:
+  #         export PUBSUB_EMULATOR_HOST=localhost:8085
+  #         export PUBSUB_PROJECT_ID=my-project
+  #      (the interop/native-events-store variant also talks native KubeMQ gRPC
+  #       on localhost:50000).
+  #   3. Run a variant per language, e.g.:
+  #         go:     go run ./topics/basic-publish-subscribe
+  #         python: uv run python -m topics.basic_publish_subscribe
+  #         ruby:   bundle exec ruby topics/basic_publish_subscribe/main.rb
+  #         java:   mvn -q exec:java -Dexec.mainClass=io.kubemq.examples.gcp.topics.basicpublishsubscribe.Main
+  #         csharp: dotnet run --project topics/basic-publish-subscribe/BasicPublishSubscribe.csproj
+  #         js/ts:  npx tsx topics/basic-publish-subscribe/index.ts
+  #
+  # See examples/SHARED-CONVENTIONS.md for the full per-language loop.
+  # ---------------------------------------------------------------------------
+  live-run-docs:
+    name: Live run (docs only — not executed)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Why this workflow is compile-only
+        run: |
+          echo "These CI jobs compile/typecheck the examples only."
+          echo "A live functional run requires a KubeMQ GCP Pub/Sub connector"
+          echo "reachable on :8085 (emulator protocol), which is not available"
+          echo "in public CI. See the comment block on this job and"
+          echo "examples/SHARED-CONVENTIONS.md for the live-run contract."

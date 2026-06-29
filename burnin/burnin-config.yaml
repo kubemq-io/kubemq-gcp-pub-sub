@@ -1,0 +1,172 @@
+# KubeMQ Google Cloud Pub/Sub burn-in harness configuration (spec S6.5).
+# Broker var override: KUBEMQ_BROKER_ADDRESS / PUBSUB_EMULATOR_HOST (default
+# localhost:8085, the Pub/Sub connector gRPC listener, emulator convention). The
+# Google SDK connects via PUBSUB_EMULATOR_HOST (zero-auth, insecure gRPC). The
+# interop worker additionally uses the native gRPC address (KUBEMQ_GRPC_ADDRESS,
+# default localhost:50000) for kubemq-go/v2. Channel naming:
+#   topic {t}        -> Events Store channel pubsub.{t}
+#   subscription {s} -> Queue channel        pubsub.sub.{s}
+#   resource ids: gcp_burnin_{worker}_{idx:04d} (overridable via BURNIN_RESOURCE_PREFIX)
+
+version: "2"
+
+broker:
+  address: "localhost:8085"        # Pub/Sub emulator host; overridden by KUBEMQ_BROKER_ADDRESS / PUBSUB_EMULATOR_HOST
+  grpc_address: "localhost:50000"  # native gRPC; overridden by KUBEMQ_GRPC_ADDRESS (interop worker only)
+  client_id_prefix: "burnin-gcp"
+
+mode: "soak"
+duration: "1h"
+run_id: ""
+warmup_duration: ""
+
+gcp:
+  project_id: "burnin"             # any id; the project segment is parsed but ignored by the connector
+  emulator_host: ""                # default = broker.address; set to override the SDK endpoint explicitly
+  ack_deadline_seconds: 10         # 10..600 (connector DefaultAckDeadlineSeconds bound)
+  enable_message_ordering: false   # global default; the ordering_keys worker forces true
+  enable_exactly_once: false       # global default; the exactly_once worker forces true
+  filter: ""                       # CEL-subset attribute filter (fan_out worker may set per-sub)
+  dead_letter_topic: ""            # dead_letter worker sets this per channel
+  max_delivery_attempts: 5         # 0 = no DLQ; 5..100 (dead_letter worker)
+  fanout_subscriptions: 3          # fan_out target subscription count
+  batch_size: 1                    # publish batch size (1..1000); >1 exercises batch atomicity
+  # New data-plane worker knobs + probe toggles (spec S6.1/S6.4).
+  schema_type: "avro"              # avro | protobuf (schema_enforce worker)
+  schema_encoding: "json"          # json | binary (schema_enforce worker)
+  nack_fraction: 0.25              # 0..1 fraction nacked by nack_redelivery
+  max_outstanding_bytes: 0         # 0 = unlimited (high-level byte flow-control; no-op at 0)
+  inflight_backlog_target: 25000   # inflight_cap backlog target (> connector 20000 cap)
+  seek_replay_count: 500           # seek_snapshot replay set size (<< MaxSeekReplay 1,000,000)
+  exactly_once_probe: true         # exactly-once unary invalid-ack probe
+  lease_extend_probe: true         # ModifyAckDeadline(>0) lease-extend probe
+  cross_stream_probe: true         # subscription-owned cross-stream ack probe
+  flow_control_probe: true         # low-level server-side flow-control clamp probe (REQ-009)
+  retry_backoff_probe: false       # exponential retry-backoff probe (opt-in, soak)
+  batch_atomicity_probe: true      # whole-batch INVALID_ARGUMENT reject probe
+
+# Seven Pub/Sub workers (spec S6.3). The interop worker is the ONLY user of the
+# native gRPC side. No RPC responder (Pub/Sub is pub/sub, not request/reply).
+workers:
+  publish_pull_round_trip:         # (1) Publish->Pull->Ack; at-least-once loss/dup verification
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 2
+    rate: 100
+  streaming_pull:                  # (2) bidirectional StreamingPull; survives server-initiated reconnect
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 100
+  ordering_keys:                   # (3) per-key in-order delivery; ordering_violations=0 gate
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  exactly_once:                    # (4) exactly-once subscription; ack-id reconciliation gate
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  dead_letter:                     # (5) redelivery past max_delivery_attempts; DLQ no-loss gate
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 30
+  fan_out:                         # (6) one topic, N subscriptions; per-sub completeness gate
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    subscriptions: 3
+    rate: 30
+  cross_protocol_interop:          # (7) GCP publish <-> native kubemq-go consume on pubsub.{t}; convergence
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  nack_redelivery:                 # (8) nack -> immediate redelivery; LOSS gate, DUP exempted
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  filtering:                       # (9) CEL-subset attribute filter; filter_mismatch=0 gate
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  schema_enforce:                  # (10) schema enforce-on-publish (OPT-IN; default-on in soak)
+    enabled: false
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 25
+  seek_snapshot:                   # (11) seek/snapshot replay-count (OPT-IN; default-on in soak)
+    enabled: false
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 25
+  inflight_cap:                    # (12) per-sub in-flight cap tail redelivery (OPT-IN; default-on in soak)
+    enabled: false
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 100
+
+message:
+  size_mode: "fixed"               # fixed | distribution
+  size_bytes: 1024
+  size_distribution: "256:80,4096:15,65536:5"
+  reorder_window: 10000
+
+metrics:
+  port: 8899                       # FIXED — collision-free for concurrent dashboard control
+  report_interval: "30s"
+
+logging:
+  format: "text"
+  level: "info"
+
+forced_disconnect:
+  interval: "0"                    # "0" disables; e.g. "60s" to inject client-recreate / StreamingPull churn
+  duration: "5s"
+
+recovery:
+  reconnect_interval: "1s"
+  reconnect_max_interval: "30s"
+  reconnect_multiplier: 2.0
+
+shutdown:
+  drain_timeout_seconds: 10
+
+output:
+  report_file: ""
+  sdk_version: ""
+
+thresholds:
+  max_loss_pct: 0.0
+  max_duplication_pct: 1.0
+  max_p50_latency_ms: 2000
+  max_p95_latency_ms: 5000
+  max_p99_latency_ms: 8000
+  max_p999_latency_ms: 15000
+  min_throughput_pct: 80
+  max_error_rate_pct: 1.0
+  max_memory_growth_factor: 2.0
+  max_downtime_pct: 10
+  max_duration: "168h"
+
+warmup:
+  max_parallel_channels: 10
+  timeout_per_channel_ms: 5000
+
+cors:
+  origins: "*"

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>exactly-once</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Delivery.ExactlyOnce</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

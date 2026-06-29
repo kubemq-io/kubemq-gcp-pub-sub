@@ -1,0 +1,76 @@
+# ── Go ──────────────────────────────────────────
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Stray command binaries built from burnin/cmd/* (e.g. `go build ./cmd/cleanup`)
+/burnin/cleanup
+/burnin/verify
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go workspace file
+go.work
+go.work.sum
+
+# NOTE: go.sum IS committed (lockfile policy).
+
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# NOTE: uv.lock IS committed (lockfile policy).
+
+# ── JavaScript / TypeScript ─────────────────────
+node_modules/
+
+# NOTE: package-lock.json IS committed (lockfile policy).
+
+# ── Java (Maven) ────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+
+# ── C# / .NET ──────────────────────────────────
+bin/
+obj/
+
+# NOTE: Directory.Packages.props central pins ARE committed (lockfile policy).
+
+# ── Ruby ────────────────────────────────────────
+Gemfile.lock
+vendor/bundle/
+
+# ── Env ─────────────────────────────────────────
+.env
+.env.*
+
+# ── Editor / IDE ────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Work / task artifacts ───────────────────────
+.work/

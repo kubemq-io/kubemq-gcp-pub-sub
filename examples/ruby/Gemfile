@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# Official Google Cloud Pub/Sub client for Ruby (first-party). These examples are
+# native `google-cloud-pubsub` apps pointed at the KubeMQ GCP Pub/Sub connector
+# by exporting PUBSUB_EMULATOR_HOST — zero code changes, no Google auth.
+#
+# Version policy (spec S5.1, S9): pin the LATEST STABLE first-party client as a
+# floor; the resolved versions are captured in the gitignored Gemfile.lock (AWS
+# convention, spec S5.1/S9). Built/verified on rbenv-provided Ruby 3.3.7 —
+# `eval "$(rbenv init - zsh)"` before any bundle command (see README).
+gem "google-cloud-pubsub", "~> 3.3"
+
+# Native KubeMQ SDK — used ONLY by the `interop/native_events_store` variant,
+# whose native half subscribes to the topic's Events Store log `pubsub.{topic}`
+# over gRPC (localhost:50000). Gem name `kubemq` (kubemq-ruby v1.0.0, Ruby >= 3.1);
+# provides KubeMQ::PubSub::PubSubClient#subscribe_to_events_store. No REST-gateway
+# fallback — Ruby joins the other five languages with a native subscribe
+# (spec REQ-008 / S5.7). Every other variant uses only google-cloud-pubsub.
+gem "kubemq", "~> 1.0"
+
+# Lint/format for the example scripts (compile-as-lint fallback is `ruby -c`).
+gem "rubocop", "~> 1.66", require: false

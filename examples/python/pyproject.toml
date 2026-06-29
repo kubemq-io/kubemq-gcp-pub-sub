@@ -1,0 +1,32 @@
+[project]
+name = "kubemq-gcp-pub-sub-examples"
+version = "0.1.0"
+description = "KubeMQ Google Cloud Pub/Sub connector examples in Python — the official google-cloud-pubsub client driven against the connector via PUBSUB_EMULATOR_HOST (zero code changes)"
+readme = "README.md"
+# google-cloud-pubsub >= 2.39 requires Python >= 3.10; the floor follows the GCP SDK.
+requires-python = ">=3.10"
+dependencies = [
+    # Official Google Cloud Pub/Sub client — the only dependency the topics/
+    # subscriptions/delivery/advanced variants need. Honours PUBSUB_EMULATOR_HOST
+    # (clears credentials, skips Google auth, uses insecure gRPC). Pulls
+    # grpcio + protobuf + google-api-core transitively (pinned in uv.lock).
+    "google-cloud-pubsub==2.39.0",
+    # KubeMQ Python SDK — used ONLY by interop/native_events_store for the native
+    # gRPC Events Store peer on channel pubsub.orders. Pulls grpcio + protobuf
+    # transitively (pinned in uv.lock).
+    "kubemq==4.1.5",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Examples favour explicit, readable flow over strict style; keep the lint
+# surface focused on real correctness signals (pyflakes + import order).
+select = ["E", "F", "I", "W"]

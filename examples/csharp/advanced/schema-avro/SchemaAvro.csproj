@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    advanced/schema-avro — Register an Avro schema, bind a topic to it, and show
+    enforce-on-publish: a conforming message is accepted, and a batch containing a
+    non-conforming message is rejected whole (INVALID_ARGUMENT). Uses ONLY the
+    official Google.Cloud.PubSub.V1 client against the KubeMQ Pub/Sub connector
+    (PUBSUB_EMULATOR_HOST). Target framework + language settings are inherited from
+    ../../Directory.Build.props; the package version is pinned centrally in
+    ../../Directory.Packages.props.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>schema-avro</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Advanced.SchemaAvro</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

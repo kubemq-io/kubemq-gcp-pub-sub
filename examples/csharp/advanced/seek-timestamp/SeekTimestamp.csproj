@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    advanced/seek-timestamp — Seek a subscription back to a wall-clock instant
+    and replay the topic Events Store log from there. Uses ONLY the official
+    Google.Cloud.PubSub.V1 client against the KubeMQ Pub/Sub connector
+    (PUBSUB_EMULATOR_HOST). Target framework + language settings are inherited
+    from ../../Directory.Build.props; the package version is pinned centrally in
+    ../../Directory.Packages.props.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>seek-timestamp</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Advanced.SeekTimestamp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

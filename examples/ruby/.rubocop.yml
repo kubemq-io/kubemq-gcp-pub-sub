@@ -1,0 +1,58 @@
+# RuboCop configuration for the KubeMQ GCP Pub/Sub Ruby examples.
+#
+# These are standalone, copy-paste-ready demonstration scripts (one linear
+# `main.rb` per variant), not a library. The config matches the established
+# house style (double-quoted strings, `# frozen_string_literal: true`) and
+# relaxes a few cops that are inappropriate for top-level example scripts.
+
+AllCops:
+  TargetRubyVersion: 3.1
+  NewCops: disable
+  SuggestExtensions: false
+  Exclude:
+    - "vendor/**/*"
+    - "vendor/bundle/**/*"
+
+# The codebase consistently uses double-quoted strings.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Layout/LineLength:
+  Max: 120
+
+# Example scripts run top-level code (create/publish/pull) by design;
+# documentation lives in the header comment + the per-variant README, so a
+# top-of-file class comment is not expected.
+Style/Documentation:
+  Enabled: false
+
+# These linear demo scripts intentionally keep all logic at the top level for
+# readability; the standard size/complexity metrics are not meaningful here.
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+# Global constants in single-file scripts are the idiomatic way to surface the
+# example's topic/subscription names.
+Style/MutableConstant:
+  Enabled: true

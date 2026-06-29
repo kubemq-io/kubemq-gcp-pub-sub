@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Central Package Management for the KubeMQ GCP Pub/Sub C# examples.
+    Every variant .csproj references these packages WITHOUT an inline Version;
+    the pinned versions below are the single source of truth.
+
+      Google.Cloud.PubSub.V1 — the official Google Cloud Pub/Sub client for .NET.
+        The examples point it at the KubeMQ Pub/Sub connector by setting
+        PUBSUB_EMULATOR_HOST (zero code changes) and building the client with
+        EmulatorDetection.EmulatorOnly / EmulatorOrProduction.
+      KubeMQ.SDK.csharp — used ONLY by interop/native-events-store, for the
+        native KubeMQ gRPC Events Store peer on channel "pubsub.orders".
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Google.Cloud.PubSub.V1" Version="3.36.0" />
+    <PackageVersion Include="KubeMQ.SDK.csharp" Version="3.0.1" />
+  </ItemGroup>
+</Project>

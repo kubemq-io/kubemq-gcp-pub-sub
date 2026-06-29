@@ -1,0 +1,21 @@
+{
+  "name": "kubemq-gcp-pub-sub-examples-js",
+  "version": "1.0.0",
+  "description": "KubeMQ Google Cloud Pub/Sub connector examples in TypeScript using the official Google Cloud Pub/Sub client (@google-cloud/pubsub) — emulator-protocol drop-in via PUBSUB_EMULATOR_HOST",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "run-example": "npx tsx"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "5.3.1",
+    "kubemq-js": "3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

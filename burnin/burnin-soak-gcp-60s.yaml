@@ -1,0 +1,167 @@
+# KubeMQ Google Cloud Pub/Sub burn-in BOUNDED-SOAK config: a 60s soak at the
+# default rates with STRICT thresholds (warm connector — full latency/throughput
+# gates apply). Use to validate a no-loss soak quickly without the full 1h run:
+#   KUBEMQ_BROKER_ADDRESS=localhost:8085 go run . --config burnin-soak-gcp-60s.yaml --run
+
+version: "2"
+
+broker:
+  address: "localhost:8085"
+  grpc_address: "localhost:50000"
+  client_id_prefix: "burnin-gcp-soak"
+
+mode: "soak"
+duration: "60s"
+warmup_duration: "8s"
+
+gcp:
+  project_id: "burnin"
+  emulator_host: ""
+  ack_deadline_seconds: 10
+  enable_message_ordering: false
+  enable_exactly_once: false
+  filter: ""
+  dead_letter_topic: ""
+  max_delivery_attempts: 5
+  fanout_subscriptions: 3
+  batch_size: 10                   # >1 exercises batch publish atomicity (soak)
+  # New data-plane worker knobs + probe toggles (spec S6.4). Soak = strict, all on.
+  schema_type: "avro"
+  schema_encoding: "json"
+  nack_fraction: 0.25
+  max_outstanding_bytes: 0
+  inflight_backlog_target: 25000
+  seek_replay_count: 500
+  exactly_once_probe: true
+  lease_extend_probe: true
+  cross_stream_probe: true
+  flow_control_probe: true
+  retry_backoff_probe: true        # opt-in probe ON only in soak
+  batch_atomicity_probe: true
+
+workers:
+  publish_pull_round_trip:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 2
+    rate: 100
+  streaming_pull:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 100
+  ordering_keys:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  exactly_once:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  dead_letter:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 30
+  fan_out:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    subscriptions: 3
+    rate: 30
+  cross_protocol_interop:
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  nack_redelivery:                 # default-ON (soak)
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  filtering:                       # default-ON (soak)
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 50
+  schema_enforce:                  # opt-in: ON in soak
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 25
+  seek_snapshot:                   # opt-in: ON in soak
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 25
+  inflight_cap:                    # opt-in: ON in soak
+    enabled: true
+    channels: 1
+    producers_per_channel: 1
+    consumers_per_channel: 1
+    rate: 100
+
+message:
+  size_mode: "fixed"
+  size_bytes: 1024
+  size_distribution: "256:80,4096:15,65536:5"
+  # >= gcp.inflight_backlog_target (25000) so held no-ack seqs are not prematurely
+  # evicted into pendingLost while inflight_cap is on (spec S5.6/S6.4).
+  reorder_window: 30000
+
+metrics:
+  port: 8899
+  report_interval: "10s"
+
+logging:
+  format: "text"
+  level: "info"
+
+forced_disconnect:
+  interval: "0"
+  duration: "5s"
+
+recovery:
+  reconnect_interval: "1s"
+  reconnect_max_interval: "30s"
+  reconnect_multiplier: 2.0
+
+shutdown:
+  drain_timeout_seconds: 10
+
+output:
+  report_file: ""
+  sdk_version: ""
+
+# Strict thresholds — full soak gates on a warm connector.
+thresholds:
+  max_loss_pct: 0.0
+  max_duplication_pct: 1.0
+  max_p50_latency_ms: 2000
+  max_p95_latency_ms: 5000
+  max_p99_latency_ms: 8000
+  max_p999_latency_ms: 15000
+  min_throughput_pct: 80
+  max_error_rate_pct: 1.0
+  max_memory_growth_factor: 2.0
+  max_downtime_pct: 10
+  max_duration: "168h"
+
+warmup:
+  max_parallel_channels: 10
+  timeout_per_channel_ms: 5000
+
+cors:
+  origins: "*"

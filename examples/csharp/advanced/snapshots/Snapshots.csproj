@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    advanced/snapshots — Capture a subscription cursor with CreateSnapshot, then
+    Seek the subscription back to that snapshot to replay. Uses ONLY the official
+    Google.Cloud.PubSub.V1 client against the KubeMQ Pub/Sub connector
+    (PUBSUB_EMULATOR_HOST). Target framework + language settings are inherited
+    from ../../Directory.Build.props; the package version is pinned centrally in
+    ../../Directory.Packages.props.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>snapshots</AssemblyName>
+    <RootNamespace>KubeMQ.GcpPubSub.Examples.Advanced.Snapshots</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.PubSub.V1" />
+  </ItemGroup>
+</Project>

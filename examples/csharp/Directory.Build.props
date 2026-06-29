@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    Shared MSBuild props for all KubeMQ GCP Pub/Sub C# example projects.
+    Each variant adds one .csproj (under topics/, subscriptions/, delivery/,
+    advanced/, interop/) that inherits the target framework and language
+    settings from here. Central Package Management (Directory.Packages.props)
+    supplies the pinned Google Pub/Sub / KubeMQ SDK versions.
+
+    NOTE: a shared helper project (if added) sets <IsShared>true</IsShared> so
+    it does NOT re-import itself as a ProjectReference.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

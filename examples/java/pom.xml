@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.kubemq.examples</groupId>
+    <artifactId>kubemq-gcp-pubsub-examples</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>KubeMQ Google Cloud Pub/Sub Examples</name>
+    <description>KubeMQ Google Cloud Pub/Sub connector examples in Java (official google-cloud-pubsub client, emulator-protocol)</description>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+          Google Cloud client libraries — version-managed via the
+          libraries-bom below (S9 policy: manage via libraries-bom; pin the BOM
+          version here). This single BOM resolves google-cloud-pubsub and all of
+          its transitive Google deps (gax, grpc, protobuf, threetenbp) to a
+          mutually-compatible set, so no individual Google artifact carries a
+          <version>. Bump-and-lock at upgrade time (no floating versions).
+        -->
+        <google-libraries-bom.version>26.84.0</google-libraries-bom.version>
+        <!-- Native KubeMQ Java SDK — interop/native-events-store native peer ONLY. -->
+        <kubemq.sdk.version>3.1.1</kubemq.sdk.version>
+        <!--
+          Protobuf runtime — aligned to the kubemq-sdk-Java 3.1.1 gencode version
+          (the SDK's proto classes are generated against protobuf 4.35.0). The
+          libraries-bom 26.84.0 manages protobuf-java down to 4.33.2; left
+          unpinned, the native SDK's gencode (4.35.0) loads on the older 4.33.2
+          runtime and protobuf's hard version guard throws
+          ExceptionInInitializerError ("Runtime version cannot be older than the
+          linked gencode version"), crashing interop/native-events-store. Pinning
+          the runtime up to 4.35.0 (forward-compatible: runtime >= gencode) keeps
+          BOTH the native SDK gencode (4.35.0) and the Pub/Sub client gencode
+          (4.33.2) valid. Bump-and-lock at SDK/BOM upgrade time.
+        -->
+        <protobuf.version>4.35.0</protobuf.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+              Protobuf runtime pin — MUST precede the libraries-bom import so this
+              explicit version wins over the BOM-managed 4.33.2. Aligns the
+              protobuf runtime with the kubemq-sdk-Java 3.1.1 gencode (4.35.0); see
+              the protobuf.version property note above. Without this,
+              interop/native-events-store fails at class-init with an incompatible
+              Gencode/Runtime version error.
+            -->
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${protobuf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${protobuf.version}</version>
+            </dependency>
+            <!--
+              Google Cloud libraries BOM — the supported way to consume the
+              official Pub/Sub Java client. Pinned here; the dependency below
+              omits its <version> and inherits it from this BOM.
+            -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google-libraries-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!--
+          Official Google Cloud Pub/Sub client — every variant. Version is
+          managed by the libraries-bom import above. Clients connect to the
+          KubeMQ connector with ZERO code changes by setting
+          PUBSUB_EMULATOR_HOST (the SDK then uses the insecure/no-auth path).
+        -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-pubsub</artifactId>
+        </dependency>
+
+        <!--
+          Native KubeMQ Java SDK — interop/native-events-store native peer ONLY.
+          This is the single variant that imports a KubeMQ SDK: it consumes the
+          topic's Events Store log (channel pubsub.{topic}) over native gRPC
+          (KUBEMQ_GRPC_ADDRESS, default localhost:50000). All other variants use
+          the official google-cloud-pubsub client only.
+        -->
+        <dependency>
+            <groupId>io.kubemq.sdk</groupId>
+            <artifactId>kubemq-sdk-Java</artifactId>
+            <version>${kubemq.sdk.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <!--
+                  Each variant is a single runnable Main class, run via
+                  `mvn -q exec:java -Dexec.mainClass=io.kubemq.examples.gcp.<group>.<variant>.Main`.
+                  Variant sources are added by the per-group example agents under
+                  src/main/java/io/kubemq/examples/gcp/...; this POM is set up so
+                  the project compiles and runs once those sources land.
+                -->
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
